@@ -3,6 +3,7 @@ import { useState, forwardRef } from 'react'
 import { DragDropContext, Draggable, Droppable, resetServerContext } from 'react-beautiful-dnd'
 import styled from 'styled-components'
 import useStrictDroppable from '../hooks/useStrictDroppable'
+import { v4 as uuidv4 } from 'uuid';
 
 const ItemContainer = styled.div`
 border: 1px dotted black;
@@ -47,28 +48,15 @@ const DragDroppableList = styled(({ className='', id, offset = 0, data, placehol
 
 `
 const App = () => {
-  const [list, setList] = useState([
-    {
-      text: 'hello there',
-      id: 'a'
-    },
-    {
-      text: 'adadad',
-      id: 'b'
-    },
-    {
-      text: 'merhaba',
-      id: 'c'
-    }
-  ])
+  const [list, setList] = useState([])
   const availableBlocks = [
     {
       text: 'text',
-      id: 'text'
+      id: 'text-block'
     },
     {
       text: 'image',
-      id: 'image'
+      id: 'image-block'
     }
   ]
   const [enabled] = useStrictDroppable(false);
@@ -77,6 +65,49 @@ const App = () => {
   }
   const onDragEnd = (result) => {
     // todo 
+    console.log('drag end draggableId:', result.draggableId, '\nsource:', result.source, '\ndestination:', result.destination)
+    const { draggableId, source, destination } = result
+   
+    const offsetIndex = availableBlocks.length
+    const id = uuidv4()
+    let outItem = list[source.index - offsetIndex] || {
+      text: '',
+      id,
+    }
+    if(draggableId.endsWith('-block')){
+      outItem = {
+        id,
+        text: 'this should be an image actually',
+      }
+      if(draggableId.startsWith('text')){
+        outItem.text = 'This is a text block. Edit me.'
+      }
+      if(!destination){
+        setList(list => ([...list, outItem]))
+      } else {
+        console.log('non-null destination')
+        const droppedIndex = destination.index
+        setList(list => {
+          const outList = [...list]
+          outList.splice(droppedIndex - offsetIndex + 1, 0, outItem)
+          return outList
+        })
+      }
+    } else {
+      if(!destination) return
+      if(destination.droppableId === source.droppableId &&
+        destination.index === source.index){
+        return 
+      }
+
+      setList(list => {
+        const newList = [...list]
+        newList.splice(source.index - offsetIndex, 1)
+        newList.splice(destination.index - offsetIndex, 0, outItem)
+        return newList
+      })
+    }
+    
   }
   return <DragDropContext
   onDragStart={onDragStart}
