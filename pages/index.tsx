@@ -13,7 +13,7 @@ const DropArea = styled.div`
 border: 1px dashed black;
 `
 
-const Item = ({ children, id, index }) => {
+const DraggableItem = ({ children, id, index }) => {
   return (
     <Draggable draggableId={id} index={index}>
       {provided => {
@@ -31,16 +31,41 @@ const Item = ({ children, id, index }) => {
 const DraggableList = ({ id, data, ...props }) => {
   return <div {...props}>
     {data.map((item, index) => {
-      return <Item key={item.id} id={item.id} index={index}>{item.text}</Item>
+      return <DraggableItem key={item.id} id={item.id} index={index}>{item.text}</DraggableItem>
     })}
   </div>
 }
 
 
-const DragDroppableList = styled(({ className='', id, offset = 0, data, placeholder, ...props }) => {
+const DragDroppableList = styled(({ className='', id, offset = 0, items, setItems, placeholder, editorMode, ...props }) => {
+  const typeToJsx = {
+    text: (item, index) => {
+      const Wrapper = editorMode ? DraggableItem : 'div'
+      return (
+        <Wrapper
+          key={item.id}
+          id={item.id}
+          index={index+offset}
+        >
+          {editorMode ? (
+            <textarea
+            value={item.text}
+            onChange={e => {
+              setItems((items) => {
+                const newItems = [...items]
+                newItems[index].text = e.target.value
+                return newItems
+              })
+            }}
+            />
+          ) : (<pre>{item.text}</pre>)}
+        </Wrapper>
+      )
+    }
+  }
   return <div className={className + ' DragDroppableList'} {...props}>
-    {data.map((item, index) => {
-      return <Item key={item.id} id={item.id} index={index+offset}>{item.text}</Item>
+    {items.map((item, index) => {
+      return typeToJsx['text'](item, index)
     })}
     {placeholder}
   </div>
@@ -48,6 +73,7 @@ const DragDroppableList = styled(({ className='', id, offset = 0, data, placehol
 
 `
 const App = () => {
+  const [editorMode, setEditorMode] = useState(false)
   const [list, setList] = useState([])
   const availableBlocks = [
     {
@@ -82,6 +108,12 @@ const App = () => {
       if(draggableId.startsWith('text')){
         outItem.text = 'This is a text block. Edit me.'
       }
+      if(draggableId.startsWith('image')){
+        outItem.image = {
+          src: '',
+          alt: ''
+        }
+      }
       if(!destination){
         setList(list => ([...list, outItem]))
       } else {
@@ -109,19 +141,23 @@ const App = () => {
     }
     
   }
-  return <DragDropContext
+  return <>
+  <button onClick={()=>setEditorMode(em => !em)}>{editorMode ? 'Preview' : 'Editor'}</button>
+  <DragDropContext
   onDragStart={onDragStart}
     onDragEnd={onDragEnd}
   >
     {/*  */}
     {enabled && <Droppable droppableId='blocks'>{provided => (
       <>
-      <DraggableList id='useable-blocks' data={availableBlocks} />
+      {editorMode && <DraggableList id='useable-blocks' data={availableBlocks} />}
         <DropArea ref={provided.innerRef} {...provided.droppableProps}>
           <DragDroppableList
             id='used-blocks'
-            data={list}
+            items={list}
+            setItems={setList}
             offset={availableBlocks.length}
+            editorMode={editorMode}
           />
           {provided.placeholder}
         </DropArea>
@@ -129,6 +165,7 @@ const App = () => {
     )}</Droppable>}
 
   </DragDropContext>
+  </>
 }
 function Home() {
   return (
