@@ -1,5 +1,5 @@
 import Head from 'next/head'
-import { useState, forwardRef } from 'react'
+import { useState, forwardRef, useRef } from 'react'
 import { DragDropContext, Draggable, Droppable, resetServerContext } from 'react-beautiful-dnd'
 import styled from 'styled-components'
 import useStrictDroppable from '../hooks/useStrictDroppable'
@@ -38,6 +38,7 @@ const DraggableList = ({ id, data, ...props }) => {
 
 
 const DragDroppableList = styled(({ className='', id, offset = 0, items, setItems, placeholder, editorMode, ...props }) => {
+  const imageInputRef = useRef(null)
   const typeToJsx = {
     text: (item, index) => {
       const Wrapper = editorMode ? DraggableItem : 'div'
@@ -61,11 +62,62 @@ const DragDroppableList = styled(({ className='', id, offset = 0, items, setItem
           ) : (<pre>{item.text}</pre>)}
         </Wrapper>
       )
+    },
+    image: (item, index) => {
+      const Wrapper = editorMode ? DraggableItem : 'div'
+      return (
+        <Wrapper
+          key={item.id}
+          id={item.id}
+          index={index+offset}
+        >
+          {editorMode ? (
+            <>
+            <input
+            ref={imageInputRef}
+            type='file'
+            accept='image/*'
+            value={item.value}
+            onChange={e => {
+              const inputEl = imageInputRef.current
+              if(inputEl){
+               
+                console.log('on change file', e)
+                // @ts-ignore
+                const files = inputEl.files;
+                console.log('files', files)
+
+                const file = files[0]
+
+                const reader  = new FileReader();
+        
+                reader.onloadend = function(){
+                    const src = reader.result;
+                  setItems((items) => { 
+                    const newItems = [...items]
+                    newItems[index].image.src = src
+                    return newItems
+                  })
+                }
+              
+                if(file){
+                    reader.readAsDataURL(file);
+                }
+
+                
+              }
+            }}
+            />
+            <img className="editor-image-preview" src={item.image.src}/>
+            </>
+          ) : (<img src={item.image.src}/>)}
+        </Wrapper>
+      )
     }
   }
   return <div className={className + ' DragDroppableList'} {...props}>
     {items.map((item, index) => {
-      return typeToJsx['text'](item, index)
+      return typeToJsx[item.type](item, index)
     })}
     {placeholder}
   </div>
@@ -99,6 +151,7 @@ const App = () => {
     let outItem = list[source.index - offsetIndex] || {
       text: '',
       id,
+      type: 'unknown'
     }
     if(draggableId.endsWith('-block')){
       outItem = {
@@ -107,12 +160,15 @@ const App = () => {
       }
       if(draggableId.startsWith('text')){
         outItem.text = 'This is a text block. Edit me.'
+        outItem.type = 'text'
       }
       if(draggableId.startsWith('image')){
         outItem.image = {
           src: '',
           alt: ''
         }
+        outItem.value = ''
+        outItem.type = 'image'
       }
       if(!destination){
         setList(list => ([...list, outItem]))
